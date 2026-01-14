@@ -3,29 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luyện Thi Di Truyền - Gamified</title>
+    <title>Luyện Thi Di Truyền Y Học - Shuffle Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;900&display=swap');
-        body { background-color: #f0fdf4; font-family: 'Be Vietnam Pro', sans-serif; } /* Nền xanh nhẹ */
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap');
+        body { background-color: #f8fafc; font-family: 'Be Vietnam Pro', sans-serif; }
+        .slide-in { animation: slideIn 0.3s ease-out forwards; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .correct-pulse { animation: correctPulse 0.5s cubic-bezier(0.4, 0, 0.6, 1); }
+        @keyframes correctPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+        /* Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #3b82f6; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #3b82f6; }
         
-        .xp-text-anim { animation: floatUp 1s ease-out forwards; }
-        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-30px) scale(1.5); } }
-        
-        .level-up-anim { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes popIn { 0% { opacity: 0; transform: scale(0.5); } 100% { opacity: 1; transform: scale(1); } }
-
-        .streak-fire { animation: burn 1s infinite alternate; }
-        @keyframes burn { from { transform: scale(1); filter: drop-shadow(0 0 2px #f97316); } to { transform: scale(1.1); filter: drop-shadow(0 0 8px #ea580c); } }
-
         /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #86efac; border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        .shuffle-btn:active { transform: rotate(180deg); transition: transform 0.3s; }
     </style>
 </head>
 <body>
@@ -34,18 +33,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- CẤU HÌNH GAMIFICATION ---
-        const LEVELS = [
-            { name: "Sinh viên Y", minXP: 0 },
-            { name: "Bác sĩ Thực tập", minXP: 100 },       // Đúng 10 câu
-            { name: "Bác sĩ Đa khoa", minXP: 300 },        // Đúng 30 câu
-            { name: "Bác sĩ Nội trú", minXP: 600 },        // Đúng 60 câu
-            { name: "Thạc sĩ Y học", minXP: 1000 },        // Hoàn thành ~1 vòng
-            { name: "Tiến sĩ Di truyền", minXP: 2000 },    // Làm lại nhiều lần
-            { name: "Giáo sư", minXP: 5000 }               // Cày cuốc
-        ];
-
-        // --- DỮ LIỆU CÂU HỎI (Demo, hãy copy đủ 117 câu vào đây) ---
+        // Dữ liệu gốc 117 câu hỏi
         const originalQuestionData = [
             { id: 1, q: "Để sơ bộ xác định người mắc hội chứng Klinefelter thì xét nghiệm đơn giản nhất có thể chỉ định được là:", a: ["Nhiễm sắc tố", "Vật thể Barr", "Vật thể Y", "Vật thể dùi trống"], correct: 1 },
             { id: 2, q: "Khi đánh giá bất thường nhiễm sắc thể giới tính ở giai đoạn gian kỳ, thường chỉ định phương pháp xét nghiệm:", a: ["Vật thể giới tính", "Nhiễm sắc thể người trực tiếp", "Nhiễm sắc thể người gián tiếp", "Di truyền phân tử"], correct: 0 },
@@ -166,189 +154,171 @@
             { id: 117, q: "Hội chứng Klinefelter thường gặp nhất có kiểu gen:", a: ["45, X", "47, XXY", "47, XYY", "48, XXXY"], correct: 1 }
         ];
 
-        // --- LOCAL STORAGE HELPERS ---
-        const loadGamification = () => {
-            const saved = localStorage.getItem('med_gen_game_data');
-            if (saved) return JSON.parse(saved);
-            return { xp: 0, streak: 0, lastStudyDate: null };
-        };
-
-        const saveGamification = (data) => {
-            localStorage.setItem('med_gen_game_data', JSON.stringify(data));
+        // Hàm trộn mảng
+        const shuffleArray = (array) => {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
         };
 
         const App = () => {
-            // Game State
-            const [gameData, setGameData] = useState(loadGamification);
-            const [showLevelUp, setShowLevelUp] = useState(false);
-            const [earnedXP, setEarnedXP] = useState(null); // Để hiện hiệu ứng +10XP
-
-            // Quiz State
+            const [questions, setQuestions] = useState(originalQuestionData);
             const [currentIdx, setCurrentIdx] = useState(0);
             const [userAnswers, setUserAnswers] = useState({});
-            
-            // Effect: Kiểm tra Streak khi mở app
-            useEffect(() => {
-                const today = new Date().toDateString();
-                const last = gameData.lastStudyDate;
-                
-                let newStreak = gameData.streak;
+            const [isAutoNext, setIsAutoNext] = useState(true);
+            const [isShuffleAnswers, setIsShuffleAnswers] = useState(false);
+            const timerRef = useRef(null);
 
-                if (last !== today) {
-                    const yesterday = new Date();
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    
-                    if (last === yesterday.toDateString()) {
-                        // Giữ nguyên streak để chờ người dùng làm bài hôm nay mới cộng
-                    } else if (last && new Date(last) < yesterday) {
-                        // Quá 1 ngày không học -> Reset streak
-                        newStreak = 0; 
-                    }
-                }
-                
-                if (newStreak !== gameData.streak) {
-                    const newData = { ...gameData, streak: newStreak };
-                    setGameData(newData);
-                    saveGamification(newData);
-                }
+            // Dọn dẹp timer khi unmount
+            useEffect(() => {
+                return () => {
+                    if (timerRef.current) clearTimeout(timerRef.current);
+                };
             }, []);
 
-            // Tính toán Level hiện tại
-            const currentLevelInfo = useMemo(() => {
-                let levelIdx = 0;
-                for (let i = LEVELS.length - 1; i >= 0; i--) {
-                    if (gameData.xp >= LEVELS[i].minXP) {
-                        levelIdx = i;
-                        break;
-                    }
-                }
-                const currentLevel = LEVELS[levelIdx];
-                const nextLevel = LEVELS[levelIdx + 1] || { minXP: gameData.xp * 1.5, name: "Max Level" };
+            // Hàm trộn câu hỏi và trộn đáp án (nếu bật)
+            const resetAndShuffle = () => {
+                if (timerRef.current) clearTimeout(timerRef.current);
                 
-                const progress = Math.min(100, ((gameData.xp - currentLevel.minXP) / (nextLevel.minXP - currentLevel.minXP)) * 100);
+                // Trộn thứ tự câu hỏi
+                let newQuestionList = shuffleArray(originalQuestionData);
 
-                return { ...currentLevel, nextXP: nextLevel.minXP, progress, idx: levelIdx };
-            }, [gameData.xp]);
+                // Nếu bật chế độ trộn đáp án, xử lý từng câu
+                if (isShuffleAnswers) {
+                    newQuestionList = newQuestionList.map(q => {
+                        // Tạo mảng đối tượng tạm thời để giữ liên kết đáp án - trạng thái đúng/sai
+                        const answersWithStatus = q.a.map((ans, idx) => ({
+                            text: ans,
+                            isCorrect: idx === q.correct
+                        }));
 
-            // Theo dõi Level Up
-            const prevLevelRef = useRef(currentLevelInfo.idx);
-            useEffect(() => {
-                if (currentLevelInfo.idx > prevLevelRef.current) {
-                    setShowLevelUp(true);
-                    setTimeout(() => setShowLevelUp(false), 3000);
-                }
-                prevLevelRef.current = currentLevelInfo.idx;
-            }, [currentLevelInfo.idx]);
+                        // Trộn mảng đáp án
+                        const shuffledAnswers = shuffleArray(answersWithStatus);
 
-            const handleAnswer = (idx) => {
-                if (userAnswers[currentIdx] !== undefined) return;
-
-                const isCorrect = idx === questionData[currentIdx].correct;
-                setUserAnswers(prev => ({ ...prev, [currentIdx]: idx }));
-
-                if (isCorrect) {
-                    // Logic cộng XP
-                    const xpGain = 10;
-                    setEarnedXP(xpGain);
-                    setTimeout(() => setEarnedXP(null), 1000);
-
-                    // Logic cộng Streak (Chỉ cộng 1 lần mỗi ngày)
-                    const today = new Date().toDateString();
-                    let newStreak = gameData.streak;
-                    if (gameData.lastStudyDate !== today) {
-                        newStreak += 1;
-                    }
-
-                    const newData = {
-                        xp: gameData.xp + xpGain,
-                        streak: newStreak,
-                        lastStudyDate: today
-                    };
-                    setGameData(newData);
-                    saveGamification(newData);
+                        // Cập nhật lại câu hỏi với thứ tự đáp án mới và index đúng mới
+                        return {
+                            ...q,
+                            a: shuffledAnswers.map(item => item.text),
+                            correct: shuffledAnswers.findIndex(item => item.isCorrect)
+                        };
+                    });
                 }
 
-                // Auto Next
-                setTimeout(() => {
-                    if (currentIdx < questionData.length - 1) {
-                        setCurrentIdx(prev => prev + 1);
-                    }
-                }, 1000);
+                setQuestions(newQuestionList);
+                setCurrentIdx(0);
+                setUserAnswers({});
+                window.scrollTo(0, 0);
             };
 
-            const currentQ = questionData[currentIdx];
+            // Gọi resetAndShuffle khi thay đổi chế độ trộn đáp án
+            // Để áp dụng ngay lập tức nếu người dùng muốn (tùy chọn, ở đây ta để người dùng tự bấm nút reset)
+            // Tuy nhiên, tốt nhất là giữ nguyên state cho đến khi bấm Reset để tránh mất bài đang làm.
+
+            const handleAnswer = (idx) => {
+                if (userAnswers[currentIdx] !== undefined) return; // Không cho chọn lại
+
+                setUserAnswers(prev => ({ ...prev, [currentIdx]: idx }));
+
+                // Logic Auto-Next
+                if (isAutoNext && currentIdx < questions.length - 1) {
+                    timerRef.current = setTimeout(() => {
+                        setCurrentIdx(prev => prev + 1);
+                    }, 1000); // Chuyển câu sau 1 giây
+                }
+            };
+
+            const stats = useMemo(() => {
+                let correct = 0, completed = 0;
+                Object.keys(userAnswers).forEach(key => {
+                    const qId = parseInt(key); // Đây là index của câu hỏi trong mảng hiện tại (đã shuffle)
+                    if (userAnswers[qId] === questions[qId].correct) correct++;
+                    completed++;
+                });
+                return { correct, completed, total: questions.length };
+            }, [userAnswers, questions]);
+
+            const currentQ = questions[currentIdx];
             const isAnswered = userAnswers[currentIdx] !== undefined;
             const isCorrect = isAnswered && userAnswers[currentIdx] === currentQ.correct;
 
-            return (
-                <div className="min-h-screen flex flex-col md:flex-row max-w-6xl mx-auto my-4 bg-white rounded-2xl shadow-2xl overflow-hidden border border-green-100">
-                    
-                    {/* --- SIDEBAR: GAME STATUS --- */}
-                    <aside className="w-full md:w-80 bg-green-50 border-r border-green-100 flex flex-col p-6 sticky top-0">
-                        <div className="mb-8 text-center">
-                            <h1 className="text-2xl font-black text-green-800 tracking-tight">DI TRUYỀN HỌC</h1>
-                            <p className="text-xs font-semibold text-green-600 uppercase tracking-widest">Gamified Quiz</p>
-                        </div>
-
-                        {/* STREAK CARD */}
-                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-orange-100 mb-4 flex items-center justify-between">
-                            <div>
-                                <div className="text-xs text-slate-500 font-bold uppercase">Streak</div>
-                                <div className="text-2xl font-black text-orange-500">{gameData.streak} Ngày</div>
+            // Màn hình kết quả khi hoàn thành
+            if (stats.completed === stats.total) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+                        <div className="max-w-2xl w-full bg-white rounded-3xl p-8 shadow-2xl text-center border-t-8 border-blue-600">
+                            <h2 className="text-4xl font-extrabold text-slate-800 mb-6">KẾT QUẢ BÀI THI</h2>
+                            <div className="flex justify-center gap-8 my-8">
+                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                                    <div className="text-slate-500 text-sm uppercase tracking-widest mb-1">Đúng</div>
+                                    <div className="text-4xl font-black text-green-600">{stats.correct}/{stats.total}</div>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                                    <div className="text-slate-500 text-sm uppercase tracking-widest mb-1">Tỷ lệ</div>
+                                    <div className="text-4xl font-black text-blue-600">{Math.round((stats.correct/stats.total)*100)}%</div>
+                                </div>
                             </div>
-                            <div className={`text-4xl ${gameData.streak > 0 ? 'streak-fire' : 'grayscale opacity-30'}`}>🔥</div>
+                            <button 
+                                onClick={resetAndShuffle} 
+                                className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-200 text-lg flex items-center justify-center gap-2"
+                            >
+                                <i className="fas fa-random"></i> TRỘN ĐỀ & LÀM LẠI
+                            </button>
                         </div>
+                    </div>
+                );
+            }
 
-                        {/* XP & LEVEL CARD */}
-                        <div className="bg-white rounded-2xl p-4 shadow-sm border border-blue-100 mb-6 relative overflow-hidden">
-                            <div className="flex justify-between items-end mb-2">
-                                <div>
-                                    <div className="text-xs text-slate-500 font-bold uppercase">Rank</div>
-                                    <div className="text-lg font-black text-blue-700">{currentLevelInfo.name}</div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-slate-400 font-bold">LVL {currentLevelInfo.idx + 1}</div>
-                                    <div className="text-sm font-bold text-blue-500">{gameData.xp} XP</div>
-                                </div>
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
+                    {/* Thanh bên trái: Danh sách câu hỏi */}
+                    <aside className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-[30vh] md:h-screen sticky top-0 z-10 shadow-lg md:shadow-none">
+                        <div className="p-5 border-b border-slate-100">
+                            <div className="flex justify-between items-center mb-4">
+                                <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                    <i className="fas fa-dna text-blue-600"></i> Di Truyền
+                                </h1>
+                                <button 
+                                    onClick={resetAndShuffle}
+                                    title="Trộn câu hỏi và làm lại từ đầu"
+                                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 flex items-center justify-center transition-all shuffle-btn"
+                                >
+                                    <i className="fas fa-random"></i>
+                                </button>
                             </div>
                             
-                            {/* Progress Bar */}
-                            <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                                <div 
-                                    className="bg-gradient-to-r from-blue-400 to-indigo-500 h-full transition-all duration-500 ease-out" 
-                                    style={{ width: `${currentLevelInfo.progress}%` }}
-                                ></div>
+                            <div className="bg-slate-100 rounded-xl p-3 flex justify-between items-center text-sm font-semibold text-slate-600">
+                                <span><i className="fas fa-check-circle text-green-500 mr-1"></i> {stats.correct}/{stats.completed}</span>
+                                <span className="text-slate-400">|</span>
+                                <span>{Math.round((stats.completed / stats.total) * 100)}%</span>
                             </div>
-                            <div className="text-[10px] text-center text-slate-400 mt-1">
-                                Cần {currentLevelInfo.nextXP - gameData.xp} XP để thăng cấp
-                            </div>
-
-                            {/* Animation +10XP */}
-                            {earnedXP && (
-                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-3xl font-black text-yellow-400 xp-text-anim z-10 pointer-events-none drop-shadow-md">
-                                    +{earnedXP} XP
-                                </div>
-                            )}
                         </div>
-
-                        {/* NAV LIST */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                        
+                        <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
                             <div className="grid grid-cols-5 gap-2">
-                                {questionData.map((_, idx) => {
+                                {questions.map((_, idx) => {
                                     const status = userAnswers[idx];
-                                    let btnClass = "h-8 rounded md:rounded-lg text-xs font-bold transition-all ";
+                                    let btnClass = "h-9 rounded-lg text-xs font-bold transition-all duration-200 ";
                                     
                                     if (status === undefined) {
-                                        btnClass += idx === currentIdx ? "bg-green-600 text-white shadow-lg scale-110" : "bg-white text-slate-400 hover:bg-green-100";
+                                        btnClass += idx === currentIdx 
+                                            ? "bg-blue-600 text-white shadow-lg ring-2 ring-blue-200 transform scale-105" 
+                                            : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-100";
                                     } else {
-                                        const isQCorrect = status === questionData[idx].correct;
-                                        btnClass += isQCorrect ? "bg-green-400 text-white" : "bg-red-400 text-white";
+                                        const isQCorrect = status === questions[idx].correct;
+                                        btnClass += isQCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white";
+                                        if (idx === currentIdx) btnClass += " ring-2 ring-slate-400 transform scale-105";
                                     }
 
                                     return (
                                         <button 
                                             key={idx} 
-                                            onClick={() => setCurrentIdx(idx)}
+                                            onClick={() => {
+                                                if(timerRef.current) clearTimeout(timerRef.current);
+                                                setCurrentIdx(idx);
+                                            }}
                                             className={btnClass}
                                         >
                                             {idx + 1}
@@ -359,84 +329,131 @@
                         </div>
                     </aside>
 
-                    {/* --- MAIN QUIZ AREA --- */}
-                    <main className="flex-1 bg-white relative">
-                        {/* LEVEL UP OVERLAY */}
-                        {showLevelUp && (
-                            <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm level-up-anim">
-                                <div className="bg-gradient-to-br from-yellow-100 to-yellow-300 p-1 rounded-3xl w-full max-w-md">
-                                    <div className="bg-white rounded-[20px] p-8 text-center">
-                                        <div className="text-6xl mb-4">👑</div>
-                                        <h2 className="text-3xl font-black text-yellow-600 mb-2">LEVEL UP!</h2>
-                                        <p className="text-slate-500 mb-6">Chúc mừng, bạn đã đạt danh hiệu:</p>
-                                        <div className="text-2xl font-bold text-slate-800 bg-yellow-100 py-3 px-6 rounded-xl inline-block border-2 border-yellow-400 border-dashed">
-                                            {currentLevelInfo.name}
-                                        </div>
+                    {/* Khu vực chính: Câu hỏi */}
+                    <main className="flex-1 p-4 md:p-8 flex flex-col h-[70vh] md:h-screen overflow-hidden">
+                        {/* Header điều khiển */}
+                        <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 gap-4">
+                            <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                                Câu hỏi {currentIdx + 1}
+                            </span>
+                            
+                            <div className="flex items-center gap-6">
+                                {/* Toggle Shuffle Answers */}
+                                <div className="flex items-center gap-3" title="Đảo lộn vị trí đáp án khi làm lại đề">
+                                    <span className={`text-sm font-semibold ${isShuffleAnswers ? 'text-purple-600' : 'text-slate-400'}`}>
+                                        <i className="fas fa-random mr-1"></i> Trộn đáp án
+                                    </span>
+                                    <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                                        <input 
+                                            type="checkbox" 
+                                            name="toggleShuffle" 
+                                            id="toggleShuffle" 
+                                            className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 left-0"
+                                            checked={isShuffleAnswers}
+                                            onChange={() => setIsShuffleAnswers(!isShuffleAnswers)}
+                                        />
+                                        <label htmlFor="toggleShuffle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${isShuffleAnswers ? 'bg-purple-500' : 'bg-slate-300'}`}></label>
+                                    </div>
+                                </div>
+
+                                {/* Toggle Auto Next */}
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-sm font-semibold ${isAutoNext ? 'text-blue-600' : 'text-slate-400'}`}>
+                                        <i className="fas fa-bolt mr-1"></i> Auto Next
+                                    </span>
+                                    <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                                        <input 
+                                            type="checkbox" 
+                                            name="toggle" 
+                                            id="toggle" 
+                                            className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 left-0"
+                                            checked={isAutoNext}
+                                            onChange={() => setIsAutoNext(!isAutoNext)}
+                                        />
+                                        <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${isAutoNext ? 'bg-blue-500' : 'bg-slate-300'}`}></label>
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        </div>
 
-                        <div className="h-full flex flex-col p-6 md:p-12">
-                            <div className="mb-6">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Câu hỏi {currentIdx + 1}/{questionData.length}</span>
-                                <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mt-2 leading-relaxed">
+                        {/* Nội dung câu hỏi */}
+                        <div className="flex-1 bg-white rounded-3xl shadow-xl p-6 md:p-10 border border-slate-100 overflow-y-auto custom-scrollbar relative">
+                            <div className="max-w-3xl mx-auto slide-in">
+                                <h2 className="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-snug">
                                     {currentQ.q}
                                 </h2>
-                            </div>
 
-                            <div className="flex-1 space-y-4">
-                                {currentQ.a.map((opt, optIdx) => {
-                                    let optionClass = "w-full p-5 rounded-xl border-2 text-left relative transition-all duration-200 flex items-center gap-4 group ";
-                                    
-                                    if (!isAnswered) {
-                                        optionClass += "border-slate-100 hover:border-green-400 hover:bg-green-50 cursor-pointer";
-                                    } else {
-                                        if (optIdx === currentQ.correct) {
-                                            optionClass += "border-green-500 bg-green-50 text-green-900";
-                                        } else if (optIdx === userAnswers[currentIdx]) {
-                                            optionClass += "border-red-500 bg-red-50 text-red-900";
+                                <div className="space-y-4">
+                                    {currentQ.a.map((opt, optIdx) => {
+                                        let optionClass = "w-full p-5 rounded-2xl border-2 text-left relative transition-all duration-300 flex items-center gap-4 group ";
+                                        
+                                        if (!isAnswered) {
+                                            optionClass += "border-slate-100 hover:border-blue-400 hover:bg-blue-50 hover:shadow-md cursor-pointer";
                                         } else {
-                                            optionClass += "border-slate-50 opacity-40 grayscale";
+                                            if (optIdx === currentQ.correct) {
+                                                optionClass += "border-green-500 bg-green-50 text-green-900 shadow-inner correct-pulse";
+                                            } else if (optIdx === userAnswers[currentIdx]) {
+                                                optionClass += "border-red-500 bg-red-50 text-red-900 opacity-90";
+                                            } else {
+                                                optionClass += "border-slate-50 opacity-40 grayscale";
+                                            }
                                         }
-                                    }
 
-                                    return (
-                                        <button 
-                                            key={optIdx}
-                                            disabled={isAnswered}
-                                            onClick={() => handleAnswer(optIdx)}
-                                            className={optionClass}
-                                        >
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
-                                                isAnswered && optIdx === currentQ.correct ? 'bg-green-600 text-white' : 
-                                                isAnswered && optIdx === userAnswers[currentIdx] ? 'bg-red-500 text-white' : 
-                                                'bg-slate-200 text-slate-500 group-hover:bg-green-500 group-hover:text-white'
-                                            }`}>
-                                                {String.fromCharCode(65 + optIdx)}
-                                            </div>
-                                            <span className="font-medium text-lg">{opt}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="mt-8 flex justify-between items-center pt-6 border-t border-slate-100">
-                                <button 
-                                    onClick={() => setCurrentIdx(Math.max(0, currentIdx - 1))}
-                                    disabled={currentIdx === 0}
-                                    className="text-slate-400 hover:text-green-600 font-bold disabled:opacity-30"
-                                >
-                                    <i className="fas fa-arrow-left mr-2"></i> Trước
-                                </button>
+                                        return (
+                                            <button 
+                                                key={optIdx}
+                                                disabled={isAnswered}
+                                                onClick={() => handleAnswer(optIdx)}
+                                                className={optionClass}
+                                            >
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
+                                                    isAnswered && optIdx === currentQ.correct ? 'bg-green-600 text-white' : 
+                                                    isAnswered && optIdx === userAnswers[currentIdx] ? 'bg-red-500 text-white' : 
+                                                    'bg-slate-200 text-slate-500 group-hover:bg-blue-500 group-hover:text-white'
+                                                }`}>
+                                                    {String.fromCharCode(65 + optIdx)}
+                                                </div>
+                                                <span className="font-medium text-lg">{opt}</span>
+                                                {isAnswered && optIdx === currentQ.correct && (
+                                                    <i className="fas fa-check-circle text-green-600 text-xl ml-auto animate-bounce"></i>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                                 
-                                <button 
-                                    onClick={() => setCurrentIdx(Math.min(questionData.length - 1, currentIdx + 1))}
-                                    className="bg-slate-800 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-transform active:scale-95 shadow-lg"
-                                >
-                                    Tiếp theo <i className="fas fa-arrow-right ml-2"></i>
-                                </button>
+                                {isAnswered && !isCorrect && (
+                                    <div className="mt-8 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg shadow-sm slide-in">
+                                        <p className="font-bold mb-1"><i className="fas fa-info-circle mr-2"></i> Đáp án đúng là:</p>
+                                        <p className="text-lg">{String.fromCharCode(65 + currentQ.correct)}. {currentQ.a[currentQ.correct]}</p>
+                                    </div>
+                                )}
                             </div>
+                        </div>
+
+                        {/* Thanh điều hướng dưới */}
+                        <div className="mt-6 flex justify-between items-center max-w-3xl mx-auto w-full px-4">
+                            <button 
+                                onClick={() => {
+                                    if(timerRef.current) clearTimeout(timerRef.current);
+                                    setCurrentIdx(Math.max(0, currentIdx - 1));
+                                }}
+                                disabled={currentIdx === 0}
+                                className="text-slate-500 hover:text-blue-600 font-semibold disabled:opacity-30 transition-colors"
+                            >
+                                <i className="fas fa-arrow-left mr-2"></i> Câu trước
+                            </button>
+                            
+                            <button 
+                                onClick={() => {
+                                    if(timerRef.current) clearTimeout(timerRef.current);
+                                    setCurrentIdx(Math.min(questions.length - 1, currentIdx + 1));
+                                }}
+                                disabled={currentIdx === questions.length - 1}
+                                className="bg-slate-800 hover:bg-black text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center gap-2"
+                            >
+                                Câu tiếp theo <i className="fas fa-arrow-right"></i>
+                            </button>
                         </div>
                     </main>
                 </div>
@@ -448,4 +465,5 @@
     </script>
 </body>
 </html>
+
 
