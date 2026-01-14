@@ -169,6 +169,7 @@
             const [currentIdx, setCurrentIdx] = useState(0);
             const [userAnswers, setUserAnswers] = useState({});
             const [isAutoNext, setIsAutoNext] = useState(true);
+            const [isShuffleAnswers, setIsShuffleAnswers] = useState(false);
             const timerRef = useRef(null);
 
             // Dọn dẹp timer khi unmount
@@ -178,14 +179,43 @@
                 };
             }, []);
 
-            // Hàm reset và shuffle
+            // Hàm trộn câu hỏi và trộn đáp án (nếu bật)
             const resetAndShuffle = () => {
                 if (timerRef.current) clearTimeout(timerRef.current);
-                setQuestions(shuffleArray(originalQuestionData));
+                
+                // Trộn thứ tự câu hỏi
+                let newQuestionList = shuffleArray(originalQuestionData);
+
+                // Nếu bật chế độ trộn đáp án, xử lý từng câu
+                if (isShuffleAnswers) {
+                    newQuestionList = newQuestionList.map(q => {
+                        // Tạo mảng đối tượng tạm thời để giữ liên kết đáp án - trạng thái đúng/sai
+                        const answersWithStatus = q.a.map((ans, idx) => ({
+                            text: ans,
+                            isCorrect: idx === q.correct
+                        }));
+
+                        // Trộn mảng đáp án
+                        const shuffledAnswers = shuffleArray(answersWithStatus);
+
+                        // Cập nhật lại câu hỏi với thứ tự đáp án mới và index đúng mới
+                        return {
+                            ...q,
+                            a: shuffledAnswers.map(item => item.text),
+                            correct: shuffledAnswers.findIndex(item => item.isCorrect)
+                        };
+                    });
+                }
+
+                setQuestions(newQuestionList);
                 setCurrentIdx(0);
                 setUserAnswers({});
                 window.scrollTo(0, 0);
             };
+
+            // Gọi resetAndShuffle khi thay đổi chế độ trộn đáp án
+            // Để áp dụng ngay lập tức nếu người dùng muốn (tùy chọn, ở đây ta để người dùng tự bấm nút reset)
+            // Tuy nhiên, tốt nhất là giữ nguyên state cho đến khi bấm Reset để tránh mất bài đang làm.
 
             const handleAnswer = (idx) => {
                 if (userAnswers[currentIdx] !== undefined) return; // Không cho chọn lại
@@ -302,26 +332,46 @@
                     {/* Khu vực chính: Câu hỏi */}
                     <main className="flex-1 p-4 md:p-8 flex flex-col h-[70vh] md:h-screen overflow-hidden">
                         {/* Header điều khiển */}
-                        <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                        <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 gap-4">
                             <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
                                 Câu hỏi {currentIdx + 1}
                             </span>
                             
-                            {/* Toggle Auto Next */}
-                            <div className="flex items-center gap-3">
-                                <span className={`text-sm font-semibold ${isAutoNext ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    <i className="fas fa-bolt mr-1"></i> Auto Next
-                                </span>
-                                <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                    <input 
-                                        type="checkbox" 
-                                        name="toggle" 
-                                        id="toggle" 
-                                        className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 left-0"
-                                        checked={isAutoNext}
-                                        onChange={() => setIsAutoNext(!isAutoNext)}
-                                    />
-                                    <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${isAutoNext ? 'bg-blue-500' : 'bg-slate-300'}`}></label>
+                            <div className="flex items-center gap-6">
+                                {/* Toggle Shuffle Answers */}
+                                <div className="flex items-center gap-3" title="Đảo lộn vị trí đáp án khi làm lại đề">
+                                    <span className={`text-sm font-semibold ${isShuffleAnswers ? 'text-purple-600' : 'text-slate-400'}`}>
+                                        <i className="fas fa-random mr-1"></i> Trộn đáp án
+                                    </span>
+                                    <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                                        <input 
+                                            type="checkbox" 
+                                            name="toggleShuffle" 
+                                            id="toggleShuffle" 
+                                            className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 left-0"
+                                            checked={isShuffleAnswers}
+                                            onChange={() => setIsShuffleAnswers(!isShuffleAnswers)}
+                                        />
+                                        <label htmlFor="toggleShuffle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${isShuffleAnswers ? 'bg-purple-500' : 'bg-slate-300'}`}></label>
+                                    </div>
+                                </div>
+
+                                {/* Toggle Auto Next */}
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-sm font-semibold ${isAutoNext ? 'text-blue-600' : 'text-slate-400'}`}>
+                                        <i className="fas fa-bolt mr-1"></i> Auto Next
+                                    </span>
+                                    <div className="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+                                        <input 
+                                            type="checkbox" 
+                                            name="toggle" 
+                                            id="toggle" 
+                                            className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 left-0"
+                                            checked={isAutoNext}
+                                            onChange={() => setIsAutoNext(!isAutoNext)}
+                                        />
+                                        <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${isAutoNext ? 'bg-blue-500' : 'bg-slate-300'}`}></label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -415,4 +465,3 @@
     </script>
 </body>
 </html>
-
