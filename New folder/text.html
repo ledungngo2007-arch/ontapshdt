@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luyện Thi Di Truyền Y Học - Auto Next</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap');
+        body { background-color: #f8fafc; font-family: 'Be Vietnam Pro', sans-serif; }
+        .slide-in { animation: slideIn 0.3s ease-out forwards; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .correct-pulse { animation: correctPulse 0.5s cubic-bezier(0.4, 0, 0.6, 1); }
+        @keyframes correctPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+        /* Toggle Switch */
+        .toggle-checkbox:checked { right: 0; border-color: #3b82f6; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #3b82f6; }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // Dữ liệu câu hỏi (Đã rút gọn để hiển thị demo, trong thực tế sẽ chứa đủ 117 câu như phiên bản trước)
+        // Tôi sẽ nạp lại đầy đủ 117 câu vào biến này
+        const questionData = [
+            { id: 1, q: "Để sơ bộ xác định người mắc hội chứng Klinefelter thì xét nghiệm đơn giản nhất có thể chỉ định được là:", a: ["Nhiễm sắc tố", "Vật thể Barr", "Vật thể Y", "Vật thể dùi trống"], correct: 1 },
+            { id: 2, q: "Khi đánh giá bất thường nhiễm sắc thể giới tính ở giai đoạn gian kỳ, thường chỉ định phương pháp xét nghiệm:", a: ["Vật thể giới tính", "Nhiễm sắc thể người trực tiếp", "Nhiễm sắc thể người gián tiếp", "Di truyền phân tử"], correct: 0 },
+            { id: 3, q: "Khi làm tiêu bản nhiễm sắc thể người, thường sử dụng loại tế bào:", a: ["Tủy xương", "Lympho", "Mono", "Đa nhân"], correct: 1 },
+            { id: 4, q: "Đặc điểm KHÔNG ĐÚNG với nhiễm sắc thể giới tính X ở người:", a: ["Có kích thước trung bình", "Tồn tại thành từng cặp tương đồng ở nữ", "Có tính biến thiên mạnh", "Có thể bị bất hoạt di truyền ở gian kỳ"], correct: 2 },
+            { id: 5, q: "Theo quy ước quốc tế, bộ NST người được sắp xếp thành mấy nhóm:", a: ["5", "6", "7", "8"], correct: 2 },
+            { id: 6, q: "Nguyên tắc làm tiêu bản bộ nhiễm sắc thể người là các tế bào bạch cầu lympho phải được:", a: ["Nhuộm băng", "Kích thích phân chia nguyên phân", "Tách riêng để nuôi cấy", "Xử lý colchicin ở kỳ đầu"], correct: 1 },
+            { id: 7, q: "Trong kỹ thuật di truyền tế bào, để quá trình phân bào dừng lại ở kỳ giữa sử dụng hóa chất nào?", a: ["Quinacrine", "Trypsin", "Colchicin", "Hematocylyne"], correct: 2 },
+            { id: 8, q: "Xác định trình tự các bước làm tiêu bản bộ nhiễm sắc thể người:", a: ["Làm đình chỉ phân bào kỳ giữa - phá vỡ màng - cố định - nhuộm", "Lựa chọn tế bào - phá vỡ màng - dừng phân bào kỳ giữa - quan sát", "Lựa chọn tế bào - dừng phân bào kỳ giữa - phá vỡ màng - quan sát", "Lựa chọn tế bào - dừng phân bào kỳ giữa - phá vỡ màng - cố định - nhuộm"], correct: 3 },
+            { id: 9, q: "Các nhiễm sắc thể thường trong tế bào sinh dưỡng luôn tồn tại ở trạng thái:", a: ["Từng chiếc riêng lẻ", "Từng cặp tương đồng", "Co ngắn lại kép riêng lẻ", "Duỗi ra từng cặp kép tương đồng"], correct: 1 },
+            { id: 10, q: "Ở nữ giới, có thể quan sát thấy vật thể Barr ở kỳ nào?", a: ["Kỳ trung gian", "Kỳ đầu", "Kỳ giữa", "Kỳ sau"], correct: 0 },
+            { id: 11, q: "Dưới kính hiển vi quang học, hình ảnh của nhiễm sắc thể X bị bất hoạt là vật thể nào?", a: ["Vật thể dùi trống", "Vật thể Barr", "Vật thể Y", "Cả 3 loại vật thể"], correct: 1 },
+            { id: 12, q: "Trong nghiên cứu di truyền người, nghiên cứu di truyền tế bào là phương pháp:", a: ["Tìm hiểu cơ chế hoạt động của gen", "Phân tích bộ NST để đánh giá về số lượng, cấu trúc", "Nghiên cứu trẻ đồng sinh", "Sử dụng kỹ thuật DNA tái tổ hợp"], correct: 1 },
+            { id: 13, q: "Các hội chứng do đột biến dị bội liên quan đến cặp NST giới tính được phát hiện bằng phương pháp:", a: ["Di truyền quần thể", "Phả hệ", "Nghiên cứu tế bào", "Đồng sinh"], correct: 2 },
+            { id: 14, q: "Trong di truyền học người, phương pháp nghiên cứu tế bào học nhằm mục đích:", a: ["Xét nghiệm DNA tìm cấu trúc gen", "Xét nghiệm tế bào về hóa học", "Phân tích bộ NST ở người", "Tìm hiểu cơ chế phân bào"], correct: 2 },
+            { id: 15, q: "Karyotype 47, XY, +13, cặp NST giới tính không tương đồng. Kết luận đúng là:", a: ["Nam mắc hội chứng Edwards", "Nữ mắc hội chứng Edwards", "Nam mắc hội chứng Patau", "Nữ mắc hội chứng Patau"], correct: 2 },
+            { id: 16, q: "47, XX, +18 là karyotype của bệnh nhân:", a: ["Nữ mắc Klinefelter", "Nữ mắc Patau", "Nam mắc Edwards", "Nữ mắc hội chứng Edwards"], correct: 3 },
+            { id: 17, q: "Xác định karyotype của bệnh nhân mắc hội chứng Patau:", a: ["47, XX, +18", "47, XX, +13", "47, XXX", "47, XXY"], correct: 1 },
+            { id: 18, q: "Bệnh di truyền biểu hiện liên tục với tần suất cao trong trường hợp di truyền:", a: ["Gen trội trên NST thường và gen trội trên X", "Gen trội hay lặn trên NST thường", "Gen lặn trên thường và gen lặn trên X", "Gen trội hay lặn trên X"], correct: 0 },
+            { id: 19, q: "Hiện tượng di truyền gen trội trên NST thường có đặc điểm nào sau đây:", a: ["Không liên tục", "Chủ yếu ở nam", "Tỷ lệ cao", "Tỷ lệ thấp"], correct: 2 },
+            { id: 20, q: "Hội chứng Marfan là đột biến gen fibrilin trên nhiễm sắc thể số:", a: ["17", "4", "9", "15"], correct: 3 },
+            { id: 21, q: "Bệnh, tật nào sau đây là do quy luật di truyền gen trội trên NST thường gây ra:", a: ["Tật thừa ngón", "Tật dính ngón tay 2 và 3", "Bệnh Thalassemia", "Bệnh Galactose huyết"], correct: 0 },
+            { id: 22, q: "Quy luật di truyền của bệnh bạch tạng:", a: ["Di truyền gen lặn trên NST thường", "Di truyền gen trội trên X", "Di truyền gen lặn trên X", "Di truyền gen trội trên thường"], correct: 0 },
+            { id: 23, q: "Tật nào sau đây KHÔNG tuân theo cơ chế gen trội trên NST thường:", a: ["Thừa ngón", "Ngắn ngón", "Cận thị", "Túm lông ở tai"], correct: 3 },
+            { id: 24, q: "Đặc điểm nào đúng với hệ nhóm máu MN:", a: ["Do 3 alen quy định", "Hai alen cùng trội tương đương nhau", "Tuân theo cơ chế di truyền trung gian", "Có 2 kiểu gen tương ứng với 3 kiểu hình"], correct: 1 },
+            { id: 25, q: "Đặc điểm ĐÚNG của bệnh di truyền do gen lặn liên kết với NST giới tính X không alen tương ứng trên Y:", a: ["Biểu hiện bệnh chủ yếu ở nam giới", "Biểu hiện chủ yếu ở nữ giới", "Bệnh chỉ biểu hiện ở nam giới", "Bệnh biểu hiện đồng đều ở 2 giới"], correct: 0 },
+            { id: 26, q: "Đặc điểm nào Không đúng của bệnh do gen trội trên NST X không alen tương ứng trên Y gây ra:", a: ["Trong gia đình chỉ có bố mắc bệnh", "Bố mắc bệnh thì tất cả con gái đều mắc bệnh", "Bố mẹ không mắc bệnh có thể sinh ra con mắc bệnh", "Mẹ mắc bệnh thì tất cả con trai mắc bệnh"], correct: 0 },
+            { id: 27, q: "Người có nhóm máu M trên bề mặt hồng cầu có kháng nguyên:", a: ["M và N", "N", "M", "MN"], correct: 2 },
+            { id: 28, q: "Bệnh loạn dưỡng cơ Duchenne là do đột biến gen:", a: ["Trội trên NST X", "Lặn trên NST X", "Trội trên NST thường", "Lặn trên NST thường"], correct: 1 },
+            { id: 29, q: "Bệnh di truyền liên quan đến rối loạn chuyển hóa bẩm sinh là:", a: ["Ung thư máu, Duchenne", "U xơ thần kinh, mù màu", "Bạch tạng, tăng galactose huyết", "Hồng cầu hình liềm"], correct: 2 },
+            { id: 30, q: "Biểu hiện của bệnh do gen nằm trên NST Y không có alen tương ứng trên X là:", a: ["Chủ yếu ở nam", "Đồng đều nam nữ", "Chỉ ở nam", "Chủ yếu ở nữ"], correct: 2 },
+            { id: 31, q: "Cơ chế gây bệnh huyết cầu tố bào thai theo quy luật di truyền:", a: ["Gen trội", "Tương đương", "Gen lặn", "Trung gian"], correct: 3 },
+            { id: 32, q: "Hệ nhóm máu MN có bao nhiêu kiểu gen tương ứng bao nhiêu kiểu hình:", a: ["3 kiểu gen, 3 kiểu hình", "3 kiểu gen, 2 kiểu hình", "3 kiểu gen, 1 kiểu hình", "2 kiểu gen, 2 kiểu hình"], correct: 0 },
+            { id: 33, q: "Đặc điểm không đúng của bệnh do gen trội trên NST Y không alen trên X:", a: ["Bố mắc bệnh thì tất cả con trai mắc bệnh", "Bố mắc bệnh tất cả con gái không mắc", "Bố không mắc có thể sinh con mắc", "Mẹ không bao giờ truyền bệnh"], correct: 0 },
+            { id: 34, q: "Khi tự nhân đôi nhưng thoi phân bào không hình thành sẽ tạo thành tế bào:", a: ["Đa bội", "Lệch bội", "Đơn bội", "Thường"], correct: 0 },
+            { id: 35, q: "Trong các dạng đột biến cấu trúc NST, dạng nào không làm thay đổi số lượng gene:", a: ["Lặp đoạn", "Đảo đoạn", "Mất đoạn", "Chuyển đoạn"], correct: 1 },
+            { id: 36, q: "Đột biến nào ít ảnh hưởng đến sức sống nhưng tăng cường sự sai khác giữa các NST tương đồng:", a: ["Lặp đoạn", "Đảo đoạn", "Mất đoạn", "Chuyển đoạn"], correct: 1 },
+            { id: 37, q: "Tế bào người có số lượng nhiễm sắc thể là:", a: ["47", "46", "23", "48"], correct: 1 },
+            { id: 38, q: "Dạng đột biến làm tăng số lượng gene trên NST:", a: ["Mất đoạn", "Đảo đoạn", "Lặp đoạn", "Chuyển đoạn trên cùng một NST"], correct: 2 },
+            { id: 39, q: "Đặc điểm nào đúng với đột biến đảo đoạn NST:", a: ["Thay đổi trình tự phân bố gene", "Giảm hoặc tăng số lượng gene", "Xuất hiện gene mới", "Gây chết cho sinh vật"], correct: 0 },
+            { id: 40, q: "Số NST trong tế bào sinh dưỡng của tam nhiễm kép (người n=23):", a: ["47", "24", "48", "25"], correct: 2 },
+            { id: 41, q: "Đột biến chuyển đoạn tương hỗ là:", a: ["NST đứt 1 đoạn quay 180 độ", "NST mất 1 đoạn không mang tâm", "Một đoạn chuyển từ vị trí này sang vị trí khác trên 1 NST", "Hai NST không tương đồng cùng đứt và trao đổi đoạn"], correct: 3 },
+            { id: 42, q: "Hậu quả của đột biến chuyển đoạn hòa hợp tâm:", a: ["Tạo 2 NST mới bằng nhau", "NST mang 2 tâm", "Chuyển đoạn tương hỗ 2 NST tâm đầu", "Làm giảm số lượng NST tế bào"], correct: 3 },
+            { id: 43, q: "Đột biến NST 2 tâm là:", a: ["Hai đoạn có tâm nối lại với nhau", "Hai NST bị đứt đầu mút nối lại", "Hai NST bị đứt đầu mút, 2 đoạn có tâm nối lại", "NST bị đứt 2 chỗ"], correct: 2 },
+            { id: 44, q: "Hội chứng 'Tiếng mèo kêu' do mất đoạn ở:", a: ["Nhánh dài NST 5", "Nhánh ngắn NST 5", "Nhánh dài NST 4", "Nhánh ngắn NST 4"], correct: 1 },
+            { id: 45, q: "Hội chứng Down do chuyển đoạn hòa hợp tâm thường xảy ra giữa:", a: ["21 với nhóm D (13-15)", "21 với nhóm D (4-5)", "22 với nhóm B", "22 với nhóm D"], correct: 0 },
+            { id: 46, q: "Các dạng đột biến mất đoạn gồm:", a: ["Mất đoạn giữa và đầu mút", "Mất đoạn đầu và sau", "Mất đoạn trong và ngoài", "Quanh tâm và ngoại tâm"], correct: 0 },
+            { id: 47, q: "Trong các dạng đột biến mất đoạn, dạng nào xảy ra phổ biến nhất:", a: ["Mất đoạn mang tâm", "Mất đoạn đầu mút", "Mất đoạn giữa", "Mất đoạn nhỏ"], correct: 0 },
+            { id: 48, q: "Đột biến mất đoạn có thể gây ra hiện tượng:", a: ["Siêu trội", "Giả trội", "Trội tự nhiên", "Đa tính trạng"], correct: 1 },
+            { id: 49, q: "Các giao tử (n-1) và (n+1) phát sinh do cơ chế:", a: ["1 cặp không phân li ở kỳ sau giảm phân", "1 cặp không phân li ở kỳ trung gian", "Thoi vô sắc không hình thành", "NST không xếp song song ở kỳ giữa"], correct: 0 },
+            { id: 50, q: "Đột biến mất đoạn làm thay đổi hệ gen như thế nào:", a: ["Tăng gen", "Giảm gen", "Không đổi", "Thay đổi trình tự"], correct: 1 },
+            { id: 51, q: "Xác định đặc điểm đúng của hiện tượng đột biến đảo đoạn:", a: ["Đoạn đứt tiêu biến", "Đoạn đứt không mang tâm tiêu biến", "Đoạn đứt quay 180 độ nối lại vị trí cũ", "Đoạn đứt chuyển sang NST khác"], correct: 2 },
+            { id: 52, q: "Hội chứng Down do 3 NST 21 được phát hiện nhờ phương pháp:", a: ["Đồng sinh", "Phả hệ", "Tế bào học", "Nếp vân da"], correct: 2 },
+            { id: 53, q: "Ở người, cơ chế di truyền tật thừa ngón tay được phát hiện nhờ:", a: ["Nghiên cứu đồng sinh", "Nghiên cứu phả hệ", "Tế bào học", "Hóa sinh"], correct: 1 },
+            { id: 54, q: "Nghiên cứu vật thể Barr có vai trò trong:", a: ["Nghiên cứu phả hệ", "Di truyền quần thể", "Xét nghiệm DNA", "Nghiên cứu tế bào học"], correct: 3 },
+            { id: 55, q: "Phương pháp làm tiêu bản bộ NST người nhằm đánh giá:", a: ["Cấu trúc, số lượng NST ở kỳ giữa", "Cấu trúc, số lượng ở kỳ trung gian", "Số lượng ở kỳ trung gian", "Cấu trúc ở kỳ sau"], correct: 0 },
+            { id: 56, q: "Một người có công thức NST 47, XXY sẽ có:", a: ["1 vật thể Y và 1 vật thể Barr", "1 vật thể Y và 2 vật thể Barr", "1 vật thể Barr", "1 vật thể Barr và 1 dùi trống"], correct: 0 },
+            { id: 57, q: "Với bệnh nhân Down ở dạng thuần thì công thức NST của mẹ (bố) là:", a: ["Bình thường (46,XX hoặc 46,XY)", "45,XX,t(14;21)", "47,XX,+21", "45,XO"], correct: 0 },
+            { id: 58, q: "Xác định Karyotype dạng khảm của người mắc hội chứng Down:", a: ["47, XXX/45,XO", "46,XX/45,XO", "46,XY/47,XY,+21", "46,XXY"], correct: 2 },
+            { id: 59, q: "Công thức nhiễm sắc thể được viết theo thứ tự nào:", a: ["Số lượng NST, NST giới tính, NST bất thường", "NST giới tính, Số lượng, bất thường", "Bất thường, số lượng, giới tính", "Số lượng, bất thường"], correct: 0 },
+            { id: 60, q: "Hậu quả cuối cùng do hội chứng Huntington gây ra là:", a: ["(1) và (3)", "(1) và (4)", "(2) và (3)", "(2) và (4) - TB thần kinh mất đi & tăng tích tụ cholesterol"], correct: 3 },
+            { id: 61, q: "Bệnh phenylxeton niệu là do đột biến gen gây thiếu hụt enzyme nào?", a: ["Tirosinase", "Transferase", "Phenylalanin hydroxylase", "Hydroxylase galactose"], correct: 2 },
+            { id: 62, q: "Bệnh a-thalassimea là do biến gen trên nhiễm sắc thể số:", a: ["16", "11", "18", "14"], correct: 0 },
+            { id: 63, q: "Nguyên nhân của bệnh phenylxeton niệu là do:", a: ["Thiếu enzyme chuyển hóa phenylalanine thành tyrosine", "Thiếu enzyme chuyển galactose", "Thiếu enzyme chuyển tirosine", "Dư thừa tirosine"], correct: 0 },
+            { id: 64, q: "Bệnh tăng galactose huyết là do đột biến gen gây thiếu hụt enzyme:", a: ["Phenylalanin hydroxylase", "Galactosotranferase (GALT)", "Lactase", "Tyrosinase"], correct: 1 },
+            { id: 65, q: "Chế độ ăn phù hợp cho bệnh nhân Galactose huyết là không có:", a: ["Sữa động vật", "Hoa quả chín", "Galactose", "Đường"], correct: 2 },
+            { id: 66, q: "Thiếu hụt enzyme transferase thì có thể phát sinh bệnh:", a: ["Mù màu", "Bạch tạng", "Galactose huyết", "Phenyxeton niệu"], correct: 2 },
+            { id: 67, q: "Đặc điểm của di truyền do gen lặn trên nhiễm sắc thể thường:", a: ["Nam nữ đều mắc tỷ lệ cao", "Nam nữ đều mắc tỷ lệ thấp", "Chỉ nam mắc", "Chủ yếu nam mắc"], correct: 1 },
+            { id: 68, q: "Hình ảnh hồng cầu dị dạng có hình bia gặp trong bệnh:", a: ["Tạo xương bất hoàn", "Thalassemia", "Hồng cầu liềm", "Bạch tạng"], correct: 1 },
+            { id: 69, q: "Hội chứng Klinefelter di truyền theo quy luật:", a: ["Gen trội NST thường", "Gen lặn NST thường", "Đột biến số lượng NST giới tính", "Gen lặn trên X"], correct: 2 },
+            { id: 70, q: "Mẹ nhóm máu M, con nhóm MN, nhóm máu bố có thể là:", a: ["M", "N", "MN", "N hoặc MN"], correct: 3 },
+            { id: 71, q: "Bệnh a-thalassimea do đột biến gen ... nằm trên nhánh ngắn NST 16:", a: ["Beta", "Alpha", "HbF", "HbA2"], correct: 1 },
+            { id: 72, q: "Bố mẹ bình thường, con trai bạch tạng (gen lặn a). Kiểu gen bố mẹ:", a: ["Aa x Aa", "Aa x AA", "AA x AA", "XA Xa x XA Y"], correct: 0 },
+            { id: 73, q: "Phả hệ: Nữ(1) bth - Chồng(2) máu khó đông -> Con trai(3) bệnh. Con trai(3) lấy vợ(4) bth -> Cháu trai(5) bệnh. Kiểu gen 5 người:", a: ["...", "...", "3(XaY), 2(XaY), 3(XaY), 4(XAXa), 5(XaY)", "..."], correct: 2 },
+            { id: 74, q: "Bố XMY, mẹ XMXm. Khả năng sinh con trai mù màu:", a: ["25%", "12.5%", "6.25%", "50%"], correct: 0 },
+            { id: 75, q: "Máu khó đông (gen lặn a trên X). Bố mẹ kiểu gen nào sinh con gái bệnh 25%:", a: ["XaXa x XaY", "XAXA x XaY", "XAXa x XAY", "XAXa x XaY"], correct: 3 },
+            { id: 76, q: "Bố mẹ bình thường sinh con trai bạch tạng (gen lặn NST thường). Xác suất sinh con bạch tạng:", a: ["37.5%", "25%", "12.5%", "50%"], correct: 1 },
+            { id: 77, q: "Có bao nhiêu bệnh gặp ở cả nam và nữ (trong ds: Ung thư máu, PKU, Túm lông tai, Down, Turner, Máu khó đông):", a: ["3", "4", "5", "6"], correct: 1 },
+            { id: 78, q: "Thể đột biến số lượng NST trong danh sách:", a: ["(1)(2)", "(3)(4)(5)", "(3)(4)(5)(7)", "(3)(6)(8)"], correct: 2 },
+            { id: 79, q: "Cơ chế gây bệnh mù màu và máu khó đông:", a: ["Lặn trên Y", "Trội trên X", "Lặn trên X", "Trội trên Y"], correct: 2 },
+            { id: 80, q: "Vợ chồng bth sinh con bạch tạng. Kết luận:", a: ["Ăn kiêng", "Cả bố mẹ mang gen lặn", "Đột biến mới ở bố", "Đột biến mới ở mẹ"], correct: 1 },
+            { id: 81, q: "Bố bị bệnh sinh các con gái đều bị bệnh (bệnh đơn gen), do gen:", a: ["Trội trên X", "Lặn trên X", "Trội trên thường", "Lặn trên thường"], correct: 0 },
+            { id: 82, q: "Người bị Down do chuyển đoạn 14, 21 thì công thức NST bố/mẹ là:", a: ["46,XX", "47,XX", "45,XX,t(14;21)", "45,XX"], correct: 2 },
+            { id: 83, q: "Người lành mang NST chuyển đoạn hòa hợp tâm có bao nhiêu NST:", a: ["46", "45", "47", "44"], correct: 1 },
+            { id: 84, q: "Người mắc Down do chuyển đoạn hòa hợp tâm có bao nhiêu NST:", a: ["45", "46", "47", "48"], correct: 1 },
+            { id: 85, q: "NST ABCDEG*HKM -> ABCDCDEG*HKM. Dạng đột biến:", a: ["Xuất hiện gen mới", "Gây chết", "Tăng/giảm biểu hiện tính trạng (Lặp đoạn)", "Tạo gen mới tiến hóa"], correct: 2 },
+            { id: 86, q: "NST ABCDEFG*HL -> ABCDEH*GFI. Dạng đột biến:", a: ["Chuyển đoạn trên cùng NST", "Đảo đoạn mang tâm", "Chuyển đoạn thay đổi hình dạng", "Đảo đoạn không mang tâm"], correct: 1 },
+            { id: 87, q: "NST ABCDEFGH -> ABCDEDEFGH. Dạng đột biến:", a: ["Lặp đoạn cùng chiều", "Chuyển đoạn", "Lặp đoạn ngược chiều", "Chuyển đoạn không tương hỗ"], correct: 0 },
+            { id: 88, q: "Đặc điểm phù hợp với hội chứng Patau:", a: ["Ngón tay quặp", "Sứt môi, đa ngón, điếc", "Mặt tròn, xếch", "Vú to"], correct: 1 },
+            { id: 89, q: "Đặc điểm phù hợp với hội chứng Turner:", a: ["Cao, chỉ dài", "Thấp, cổ cánh bướm, tóc mọc thấp", "2 vật thể Barr", "Tinh hoàn lạc chỗ"], correct: 1 },
+            { id: 90, q: "Đặc điểm phù hợp với hội chứng Siêu nữ (XXX):", a: ["Cao", "Thấp", "Có 2 vật thể Barr", "Hung hăng"], correct: 2 },
+            { id: 91, q: "Đặc điểm phù hợp với hội chứng Siêu nam (XYY):", a: ["Cao", "Thấp", "Hung hăng, dễ kích động", "2 Barr"], correct: 2 },
+            { id: 92, q: "Đặc điểm phù hợp với hội chứng Down:", a: ["Ngón tay quặp", "Sứt môi", "Đầu nhỏ, mặt tròn, cổ ngắn, khe mắt xếch, lưỡi to", "Cao"], correct: 2 },
+            { id: 93, q: "Đặc điểm phù hợp với hội chứng Edwards:", a: ["Ngón cái và nhẫn quặp vào lòng, ngón trỏ út đè lên", "Sứt môi", "Lưỡi to", "Cao"], correct: 0 },
+            { id: 94, q: "Đột biến mất đoạn là hiện tượng NST:", a: ["Mất 1 đoạn mang tâm", "Mất 1 đoạn không mang tâm", "Quay 180 độ", "Chuyển sang NST khác"], correct: 1 },
+            { id: 95, q: "Đặc điểm phù hợp hội chứng Klinefelter:", a: ["Cao, chi dài, vú to, tinh hoàn nhỏ", "Thấp", "2 Barr", "Mặt xếch"], correct: 0 },
+            { id: 96, q: "Hợp tử bình thường, nguyên phân lần đầu cặp 18 không phân ly tạo ra:", a: ["47,XX+18", "46/45/47 khảm", "45/47 khảm", "46,XX"], correct: 2 },
+            { id: 97, q: "Cặp 18 không phân ly trong giảm phân, thụ tinh với giao tử bình thường tạo:", a: ["47,XX+18", "Khảm 3 dòng", "Khảm 2 dòng", "46,XX"], correct: 0 },
+            { id: 98, q: "Nguyên phân lần 2 cặp 13 không phân ly tạo ra:", a: ["47,+13", "45/47", "46/45/47 (Khảm 3 dòng)", "46"], correct: 2 },
+            { id: 99, q: "Người mắc Down 47,XX,+21 do cặp 21 không phân ly trong:", a: ["Giảm phân bố/mẹ", "Nguyên phân lần 1", "Nguyên phân lần 2", "Thụ tinh"], correct: 0 },
+            { id: 100, q: "Phương pháp nghiên cứu tế bào KHÔNG thể nghiên cứu bệnh nào:", a: ["Chuyển đoạn", "Cấu trúc NST", "Đột biến gen", "Số lượng NST"], correct: 2 },
+            { id: 101, q: "Trong bộ NST người, nhóm nào mang NST tâm đầu?", a: ["IV (D) và VII (G)", "I, II", "IV, V", "V, VII"], correct: 0 },
+            { id: 102, q: "Ký hiệu 45, XY, t(13q,14q) mô tả:", a: ["Mất đoạn", "Chuyển đoạn hòa hợp tâm (Robertson) mất 1 NST 13, 14", "Chuyển đoạn tương hỗ", "Lặp đoạn"], correct: 1 },
+            { id: 103, q: "Xét nghiệm tế bào soma nữ thấy có 3 NST X. Số vật thể Barr là:", a: ["1", "3", "2", "4"], correct: 2 },
+            { id: 104, q: "Karyotype: NST 21 có 3 chiếc, NST giới tính 3 chiếc (2X, 1Y). Chẩn đoán:", a: ["Nữ Down", "Nữ vừa Down vừa 3X", "Nam Down", "Nam vừa Down vừa Klinefelter"], correct: 3 },
+            { id: 105, q: "Đặc điểm đúng với giả thuyết Lyon về bất hoạt X:", a: ["Xảy ra muộn", "Số X bất hoạt = Số X", "Ngẫu nhiên, sớm trong thai kỳ", "Chỉ X từ bố"], correct: 2 },
+            { id: 106, q: "Phát biểu đúng về chuyển đoạn hòa hợp tâm:", a: ["Là chuyển đoạn tương hỗ giữa 2 NST tâm đầu", "Tương hỗ tâm giữa", "Không tương hỗ tâm đầu", "Không tương hỗ tâm giữa"], correct: 0 },
+            { id: 107, q: "NST A*BNDFGH và M*NOPQRS -> A*BCDQRS và M*NOPFGH. Dạng đột biến:", a: ["Trao đổi chéo cân", "Chuyển đoạn không tương hỗ", "Trao đổi chéo không cân", "Chuyển đoạn tương hỗ"], correct: 3 },
+            { id: 108, q: "Đột biến vừa thay đổi cấu trúc vừa thay đổi số lượng NST:", a: ["Mất đoạn", "Chuyển đoạn hòa hợp tâm", "Đảo đoạn", "Chuyển đoạn trong 1 NST"], correct: 1 },
+            { id: 109, q: "NST ABCDEG*HKM -> ABCDCDEG*HKM. Hậu quả:", a: ["Gen mới", "Gây chết", "Tăng/giảm biểu hiện tính trạng", "Tiến hóa gen"], correct: 2 },
+            { id: 110, q: "NST ABC*DFGH và MNOPQRS -> ABC*DQRS và MNO*PFGH. Dạng đột biến:", a: ["Chuyển đoạn hòa hợp tâm", "Chuyển đoạn tương hỗ", "Chuyển đoạn nhánh", "Chuyển đoạn không tương hỗ"], correct: 1 },
+            { id: 111, q: "NST ABCDEFGH -> ABCDEEDFGH. Dạng đột biến:", a: ["Chuyển đoạn không tương hỗ", "Chuyển đoạn tương hỗ", "Lặp đoạn cùng chiều", "Lặp đoạn ngược chiều"], correct: 3 },
+            { id: 112, q: "Đột biến vừa thay đổi cấu trúc vừa thay đổi số lượng NST (Lặp lại):", a: ["Tạo NST 2 tâm", "Mất đoạn", "Chuyển đoạn hòa hợp tâm", "Lặp đoạn"], correct: 2 },
+            { id: 113, q: "Hợp tử bình thường, nguyên phân lần 1 cặp 13 không phân ly tạo ra:", a: ["47,XX+18", "45/47 khảm", "45/47 khảm (+13)", "46,XX"], correct: 2 },
+            { id: 114, q: "Số bệnh di truyền do gen trội trên NST thường (trong ds: Bạch tạng, Ung thư máu, U xơ, Thalassemia, Huntington, Marfan, Down, PKU, Klinefelter):", a: ["3 (U xơ, Huntington, Marfan)", "4", "5", "6"], correct: 0 },
+            { id: 115, q: "Xét cặp XY, giảm phân I phân ly bất thường (kỳ sau) tạo giao tử:", a: ["X, Y, XY, O", "XY và O", "XX, YY, XY, Q", "XY, XX, YY, O"], correct: 1 },
+            { id: 116, q: "Xác định các thể đột biến dị bội trong danh sách:", a: ["I, IV, V", "VI, V, VI, VII, VIII (Patau, Down, Turner, 3X, Klinefelter)", "IV, V, VI, VIII", "IV, V, VI, VIII, X"], correct: 1 },
+            { id: 117, q: "Hội chứng Klinefelter thường gặp nhất có kiểu gen:", a: ["45, X", "47, XXY", "47, XYY", "48, XXXY"], correct: 1 }
+        ];
+
+        const App = () => {
+            const [currentIdx, setCurrentIdx] = useState(0);
+            const [userAnswers, setUserAnswers] = useState({});
+            const [isAutoNext, setIsAutoNext] = useState(true);
+            const timerRef = useRef(null);
+
+            // Dọn dẹp timer khi unmount
+            useEffect(() => {
+                return () => {
+                    if (timerRef.current) clearTimeout(timerRef.current);
+                };
+            }, []);
+
+            const handleAnswer = (idx) => {
+                if (userAnswers[currentIdx] !== undefined) return; // Không cho chọn lại
+
+                setUserAnswers(prev => ({ ...prev, [currentIdx]: idx }));
+
+                // Logic Auto-Next
+                if (isAutoNext && currentIdx < questionData.length - 1) {
+                    timerRef.current = setTimeout(() => {
+                        setCurrentIdx(prev => prev + 1);
+                    }, 1000); // Chuyển câu sau 1 giây
+                }
+            };
+
+            const stats = useMemo(() => {
+                let correct = 0, completed = 0;
+                Object.keys(userAnswers).forEach(key => {
+                    const qId = parseInt(key);
+                    if (userAnswers[qId] === questionData[qId].correct) correct++;
+                    completed++;
+                });
+                return { correct, completed, total: questionData.length };
+            }, [userAnswers]);
+
+            const currentQ = questionData[currentIdx];
+            const isAnswered = userAnswers[currentIdx] !== undefined;
+            const isCorrect = isAnswered && userAnswers[currentIdx] === currentQ.correct;
+
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
+                    {/* Thanh bên trái: Danh sách câu hỏi */}
+                    <aside className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-[30vh] md:h-screen sticky top-0 z-10 shadow-lg md:shadow-none">
+                        <div className="p-5 border-b border-slate-100">
+                            <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <i className="fas fa-dna text-blue-600"></i> Di Truyền Y Học
+                            </h1>
+                            <div className="mt-4 bg-slate-100 rounded-xl p-3 flex justify-between items-center text-sm font-semibold text-slate-600">
+                                <span><i className="fas fa-check-circle text-green-500 mr-1"></i> {stats.correct}/{stats.completed}</span>
+                                <span className="text-slate-400">|</span>
+                                <span>{Math.round((stats.completed / stats.total) * 100)}% Hoàn thành</span>
+                            </div>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+                            <div className="grid grid-cols-5 gap-2">
+                                {questionData.map((_, idx) => {
+                                    const status = userAnswers[idx];
+                                    let btnClass = "h-9 rounded-lg text-xs font-bold transition-all duration-200 ";
+                                    
+                                    if (status === undefined) {
+                                        btnClass += idx === currentIdx 
+                                            ? "bg-blue-600 text-white shadow-lg ring-2 ring-blue-200 transform scale-105" 
+                                            : "bg-slate-50 text-slate-500 hover:bg-slate-200 border border-slate-100";
+                                    } else {
+                                        const isQCorrect = status === questionData[idx].correct;
+                                        btnClass += isQCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white";
+                                        if (idx === currentIdx) btnClass += " ring-2 ring-slate-400 transform scale-105";
+                                    }
+
+                                    return (
+                                        <button 
+                                            key={idx} 
+                                            onClick={() => {
+                                                if(timerRef.current) clearTimeout(timerRef.current);
+                                                setCurrentIdx(idx);
+                                            }}
+                                            className={btnClass}
+                                        >
+                                            {idx + 1}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Khu vực chính: Câu hỏi */}
+                    <main className="flex-1 p-4 md:p-8 flex flex-col h-[70vh] md:h-screen overflow-hidden">
+                        {/* Header điều khiển */}
+                        <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                            <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                                Câu hỏi {currentIdx + 1}
+                            </span>
+                            
+                            {/* Toggle Auto Next */}
+                            <div className="flex items-center gap-3">
+                                <span className={`text-sm font-semibold ${isAutoNext ? 'text-blue-600' : 'text-slate-400'}`}>
+                                    <i className="fas fa-bolt mr-1"></i> Auto Next
+                                </span>
+                                <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input 
+                                        type="checkbox" 
+                                        name="toggle" 
+                                        id="toggle" 
+                                        className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 left-0"
+                                        checked={isAutoNext}
+                                        onChange={() => setIsAutoNext(!isAutoNext)}
+                                    />
+                                    <label htmlFor="toggle" className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-300 ${isAutoNext ? 'bg-blue-500' : 'bg-slate-300'}`}></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Nội dung câu hỏi */}
+                        <div className="flex-1 bg-white rounded-3xl shadow-xl p-6 md:p-10 border border-slate-100 overflow-y-auto custom-scrollbar relative">
+                            <div className="max-w-3xl mx-auto slide-in">
+                                <h2 className="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-snug">
+                                    {currentQ.q}
+                                </h2>
+
+                                <div className="space-y-4">
+                                    {currentQ.a.map((opt, optIdx) => {
+                                        let optionClass = "w-full p-5 rounded-2xl border-2 text-left relative transition-all duration-300 flex items-center gap-4 group ";
+                                        
+                                        if (!isAnswered) {
+                                            optionClass += "border-slate-100 hover:border-blue-400 hover:bg-blue-50 hover:shadow-md cursor-pointer";
+                                        } else {
+                                            if (optIdx === currentQ.correct) {
+                                                optionClass += "border-green-500 bg-green-50 text-green-900 shadow-inner correct-pulse";
+                                            } else if (optIdx === userAnswers[currentIdx]) {
+                                                optionClass += "border-red-500 bg-red-50 text-red-900 opacity-90";
+                                            } else {
+                                                optionClass += "border-slate-50 opacity-40 grayscale";
+                                            }
+                                        }
+
+                                        return (
+                                            <button 
+                                                key={optIdx}
+                                                disabled={isAnswered}
+                                                onClick={() => handleAnswer(optIdx)}
+                                                className={optionClass}
+                                            >
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
+                                                    isAnswered && optIdx === currentQ.correct ? 'bg-green-600 text-white' : 
+                                                    isAnswered && optIdx === userAnswers[currentIdx] ? 'bg-red-500 text-white' : 
+                                                    'bg-slate-200 text-slate-500 group-hover:bg-blue-500 group-hover:text-white'
+                                                }`}>
+                                                    {String.fromCharCode(65 + optIdx)}
+                                                </div>
+                                                <span className="font-medium text-lg">{opt}</span>
+                                                {isAnswered && optIdx === currentQ.correct && (
+                                                    <i className="fas fa-check-circle text-green-600 text-xl ml-auto animate-bounce"></i>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                
+                                {isAnswered && !isCorrect && (
+                                    <div className="mt-8 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg shadow-sm slide-in">
+                                        <p className="font-bold mb-1"><i className="fas fa-info-circle mr-2"></i> Đáp án đúng là:</p>
+                                        <p className="text-lg">{String.fromCharCode(65 + currentQ.correct)}. {currentQ.a[currentQ.correct]}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Thanh điều hướng dưới */}
+                        <div className="mt-6 flex justify-between items-center max-w-3xl mx-auto w-full px-4">
+                            <button 
+                                onClick={() => {
+                                    if(timerRef.current) clearTimeout(timerRef.current);
+                                    setCurrentIdx(Math.max(0, currentIdx - 1));
+                                }}
+                                disabled={currentIdx === 0}
+                                className="text-slate-500 hover:text-blue-600 font-semibold disabled:opacity-30 transition-colors"
+                            >
+                                <i className="fas fa-arrow-left mr-2"></i> Câu trước
+                            </button>
+                            
+                            <button 
+                                onClick={() => {
+                                    if(timerRef.current) clearTimeout(timerRef.current);
+                                    setCurrentIdx(Math.min(questionData.length - 1, currentIdx + 1));
+                                }}
+                                disabled={currentIdx === questionData.length - 1}
+                                className="bg-slate-800 hover:bg-black text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center gap-2"
+                            >
+                                Câu tiếp theo <i className="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
